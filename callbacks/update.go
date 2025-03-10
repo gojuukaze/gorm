@@ -32,6 +32,15 @@ func SetupUpdateReflectValue(db *gorm.DB) {
 // BeforeUpdate before update hooks
 func BeforeUpdate(db *gorm.DB) {
 	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeUpdate) {
+
+		m, ok := db.Statement.Context.Value(gorm.UpdateWhereHookKey).(gorm.SqlHookType)
+		if ok {
+			where := m[db.Statement.Table+"_update"]
+			if len(where) > 1 {
+				db.Statement.Where(where[0], where[1:]...)
+			}
+		}
+
 		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
 			if db.Statement.Schema.BeforeSave {
 				if i, ok := value.(BeforeSaveInterface); ok {
