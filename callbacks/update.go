@@ -31,7 +31,7 @@ func SetupUpdateReflectValue(db *gorm.DB) {
 
 // BeforeUpdate before update hooks
 func BeforeUpdate(db *gorm.DB) {
-	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks && (db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeUpdate) {
+	if db.Error == nil && db.Statement.Schema != nil && !db.Statement.SkipHooks {
 
 		m, ok := db.Statement.Context.Value(gorm.UpdateWhereHookKey).(gorm.SqlHookType)
 		if ok {
@@ -40,24 +40,26 @@ func BeforeUpdate(db *gorm.DB) {
 				db.Statement.Where(where[0], where[1:]...)
 			}
 		}
-
-		callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
-			if db.Statement.Schema.BeforeSave {
-				if i, ok := value.(BeforeSaveInterface); ok {
-					called = true
-					db.AddError(i.BeforeSave(tx))
+		if db.Statement.Schema.BeforeSave || db.Statement.Schema.BeforeUpdate {
+			callMethod(db, func(value interface{}, tx *gorm.DB) (called bool) {
+				if db.Statement.Schema.BeforeSave {
+					if i, ok := value.(BeforeSaveInterface); ok {
+						called = true
+						db.AddError(i.BeforeSave(tx))
+					}
 				}
-			}
 
-			if db.Statement.Schema.BeforeUpdate {
-				if i, ok := value.(BeforeUpdateInterface); ok {
-					called = true
-					db.AddError(i.BeforeUpdate(tx))
+				if db.Statement.Schema.BeforeUpdate {
+					if i, ok := value.(BeforeUpdateInterface); ok {
+						called = true
+						db.AddError(i.BeforeUpdate(tx))
+					}
 				}
-			}
 
-			return called
-		})
+				return called
+			})
+
+		}
 	}
 }
 
