@@ -920,6 +920,7 @@ func TestSelectWithVariables(t *testing.T) {
 	DB.Save(&User{Name: "select_with_variables"})
 
 	rows, _ := DB.Table("users").Where("name = ?", "select_with_variables").Select("? as fake", gorm.Expr("name")).Rows()
+	defer rows.Close()
 
 	if !rows.Next() {
 		t.Errorf("Should have returned at least one row")
@@ -927,8 +928,6 @@ func TestSelectWithVariables(t *testing.T) {
 		columns, _ := rows.Columns()
 		AssertEqual(t, columns, []string{"fake"})
 	}
-
-	rows.Close()
 }
 
 func TestSelectWithArrayInput(t *testing.T) {
@@ -1125,6 +1124,10 @@ func TestSearchWithMap(t *testing.T) {
 
 	var user User
 	DB.First(&user, map[string]interface{}{"name": users[0].Name})
+	CheckUser(t, user, users[0])
+
+	user = User{}
+	DB.First(&user, map[string]interface{}{"users.name": users[0].Name})
 	CheckUser(t, user, users[0])
 
 	user = User{}

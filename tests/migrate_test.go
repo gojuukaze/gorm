@@ -24,7 +24,7 @@ import (
 )
 
 func TestMigrate(t *testing.T) {
-	allModels := []interface{}{&User{}, &Account{}, &Pet{}, &Company{}, &Toy{}, &Language{}, &Tools{}}
+	allModels := []interface{}{&User{}, &Account{}, &Pet{}, &Company{}, &Toy{}, &Language{}, &Tools{}, &Man{}}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(allModels), func(i, j int) { allModels[i], allModels[j] = allModels[j], allModels[i] })
 	DB.Migrator().DropTable("user_speaks", "user_friends", "ccc")
@@ -1600,6 +1600,41 @@ func TestMigrateWithDefaultValue(t *testing.T) {
 	defVal, ok = columnType.DefaultValue()
 	AssertEqual(t, defVal, "")
 	AssertEqual(t, ok, false)
+}
+
+func TestMigrateDontOverrideAlterColumnByDefaultValue(t *testing.T) {
+	if DB.Dialector.Name() != "sqlite" {
+		t.Skip()
+	}
+
+	type BytesDefaultModel struct {
+		ID   int    `gorm:"primaryKey"`
+		Data []byte `gorm:"type:bytes;default:hello"`
+	}
+
+	tableName := "bytes_default_models"
+	DB.Migrator().DropTable(tableName)
+	if err := DB.Exec("CREATE TABLE bytes_default_models (id integer primary key, data TEXT DEFAULT 'hello')").Error; err != nil {
+		t.Fatalf("failed to create table, got error: %v", err)
+	}
+
+	columnType, err := findColumnType(tableName, "data")
+	if err != nil {
+		t.Fatalf("failed to get column type, got error: %v", err)
+	}
+	AssertEqual(t, strings.ToLower(columnType.DatabaseTypeName()), "text")
+
+	if err := DB.AutoMigrate(&BytesDefaultModel{}); err != nil {
+		t.Fatalf("failed to migrate, got error: %v", err)
+	}
+
+	columnType, err = findColumnType(tableName, "data")
+	if err != nil {
+		t.Fatalf("failed to get column type, got error: %v", err)
+	}
+	if !strings.Contains(strings.ToUpper(columnType.DatabaseTypeName()), "BLOB") {
+		t.Fatalf("expected data column to be migrated to BLOB, got: %s", columnType.DatabaseTypeName())
+	}
 }
 
 func TestMigrateMySQLWithCustomizedTypes(t *testing.T) {
